@@ -35,7 +35,7 @@ struct Headers {
 * Extern
 *************************************************************************/
 
-extern void set_tc_priority(bit<32> major, bit<32> minor);
+extern void set_tc_priority(bit<32> classid);
 
 /************************************************************************
 * Parser
@@ -67,8 +67,8 @@ parser prs(packet_in p, out Headers headers)
 control pipe(inout Headers headers, out bool pass ) {
 
     /* Ustawianie klasy dla TC */
-    action set_class(bit<32> major, bit<32> minor) {
-        set_tc_priority(major, minor);
+    action set_class(bit<32> classid) {
+        set_tc_priority(classid);
     }
 
     /* Tabela 1: Filtrowanie po Protokole (L4) */
@@ -97,7 +97,7 @@ control pipe(inout Headers headers, out bool pass ) {
 
     apply {
         pass = true;
-        set_tc_priority(1, 30);
+        set_tc_priority(304);
 
         if (headers.ipv4.isValid()) {
             tbl_protocol.apply();
