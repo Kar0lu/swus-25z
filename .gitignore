@@ -3,3 +3,5 @@ classifier.c
 classifier.o
 classifier.h
 simplifier
+**/results*/*
+**/img/*
