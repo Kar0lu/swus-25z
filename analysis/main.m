@@ -1,5 +1,5 @@
 % main.m
-% Root script to organize Sockperf log analysis
+% Root script to organize iperf3/sockperf log analysis
 clear; clc; close all;
 
 % Configuration

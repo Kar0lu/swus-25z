@@ -1,5 +1,4 @@
 function plot_data(stats)
-    % PLOT_DATA Visualizes stats in subplots and prints detailed report
     
     if isempty(stats)
         return;
@@ -7,82 +6,124 @@ function plot_data(stats)
 
     scenarios = {stats.scenario};
     means = [stats.calc_mean];
-    stds = [stats.calc_std];
+    stds_latency = [stats.calc_std];
+    cis_latency = [stats.ci95_latency];
+    
     jitters = [stats.calc_jitter];
-    cis = [stats.ci95];
+    cis_jitter = [stats.ci95_jitter];
+    
+    % --- Konfiguracja kolorów ---
+    bar_color = [0.2 0.6 0.8];      % Jasnoniebieski
+    err_std_color = [1 0 1];        % Magenta (Std Dev)
+    err_ci_color = [0 1 0];         % Zielony (CI 95%)
     
     % --- Plotting ---
-    figure('Name', 'Sockperf Analysis', 'Position', [100, 100, 1400, 500]);
+    figure('Name', 'Sockperf Analysis', 'Position', [100, 100, 1200, 500]);
     
-    % 1. Mean Latency
-    subplot(1, 3, 1);
-    bar(means);
+    % --- Wykres 1: Opóźnienie Średnie ---
+    subplot(1, 2, 1);
+    bar(means, 'FaceColor', bar_color);
+    hold on;
+    
+    % Errorbar: Odchylenie Standardowe
+    e_std = errorbar(1:length(means), means, stds_latency, stds_latency, ...
+        'Color', err_std_color, 'LineStyle', 'none', 'LineWidth', 1.0, 'CapSize', 10);
+        
+    % Errorbar: Przedział Ufności 95%
+    e_ci = errorbar(1:length(means), means, cis_latency, cis_latency, ...
+        'Color', err_ci_color, 'LineStyle', 'none', 'LineWidth', 2.0, 'CapSize', 6);
+    
+    hold off;
+    
     title('Opóźnienie Średnie');
     ylabel('Opóźnienie (\mus)');
-    set(gca, 'XTickLabel', scenarios, 'TickLabelInterpreter', 'none');
+    set(gca, 'XTick', 1:length(scenarios), 'XTickLabel', scenarios, 'TickLabelInterpreter', 'none');
     xtickangle(45);
     grid on;
+    
+    legend([e_std, e_ci], {'Odchylenie Std.', 'Przedział Ufności 95%'}, 'Location', 'northeast');
 
-    % 2. Standard Deviation
-    subplot(1, 3, 2);
-    bar(stds);
-    title('Odchylenie Standardowe');
-    ylabel('Opóźnienie (\mus)');
-    set(gca, 'XTickLabel', scenarios, 'TickLabelInterpreter', 'none');
-    xtickangle(45);
-    grid on;
-
-    % 3. Jitter
-    subplot(1, 3, 3);
-    bar(jitters);
+    % --- Wykres 2: Jitter ---
+    subplot(1, 2, 2);
+    bar(jitters, 'FaceColor', bar_color);
+    hold on;
+    
+    % Errorbar: TYLKO Przedział Ufności 95% (usunięto std dev)
+    e_ci_j = errorbar(1:length(jitters), jitters, cis_jitter, cis_jitter, ...
+        'Color', err_ci_color, 'LineStyle', 'none', 'LineWidth', 2.0, 'CapSize', 6);
+    
+    hold off;
+    
     title('Jitter');
-    ylabel('Opóźnienie (\mus)');
-    set(gca, 'XTickLabel', scenarios, 'TickLabelInterpreter', 'none');
+    ylabel('Jitter (\mus)');
+    set(gca, 'XTick', 1:length(scenarios), 'XTickLabel', scenarios, 'TickLabelInterpreter', 'none');
     xtickangle(45);
     grid on;
     
-    % --- Command Line Output ---
-    % Define column widths to fit the long Polish headers
+    ylim([0 inf]); 
+    
+    legend(e_ci_j, {'Przedział Ufności 95%'}, 'Location', 'northeast');
+    
+    % --- Command Line Output (Dwie Tabele) ---
     w_scen = 20;
-    w_mean = 32;
-    w_std  = 36;
-    w_jit  = 10;
-    w_ci   = 24;
+    w_val  = 25;
+    w_std  = 30;
+    w_ci   = 20;
     
-    total_len = w_scen + w_mean + w_std + w_jit + w_ci + 12; % +12 for separators
-    fprintf('\n%s\n', repmat('-', 1, total_len));
+    total_len = w_scen + w_val + w_std + w_ci + 9;
     
-    % Print Header with dynamic width
-    fprintf('%-*s | %-*s | %-*s | %-*s | %-*s\n', ...
+    % Tabela 1: Średnia Opóźnienia
+    fprintf('\n%s\n', repmat('=', 1, total_len));
+    fprintf(' TABELA 1: OPÓŹNIENIE ŚREDNIE\n');
+    fprintf('%s\n', repmat('-', 1, total_len));
+    fprintf('%-*s | %-*s | %-*s | %-*s\n', ...
         w_scen, 'Scenariusz', ...
-        w_mean, 'Opóźnienie Średnie (Calc/Rep)', ...
+        w_val,  'Średnia (Calc/Rep)', ...
         w_std,  'Odchylenie Std. (Calc/Rep)', ...
-        w_jit,  'Jitter', ...
-        w_ci,   'Przedział Ufności 95%');
-        
+        w_ci,   'CI 95%');
     fprintf('%s\n', repmat('-', 1, total_len));
     
     for i = 1:length(stats)
-        % Handle NaNs in reported values
+        % Formatowanie reported values
         rep_avg_str = sprintf('%.3f', stats(i).rep_avg);
         if isnan(stats(i).rep_avg), rep_avg_str = 'N/A'; end
         
         rep_std_str = sprintf('%.3f', stats(i).rep_std);
         if isnan(stats(i).rep_std), rep_std_str = 'N/A'; end
         
-        % Create composite strings for the columns
-        str_mean_val = sprintf('%.3f / %s', stats(i).calc_mean, rep_avg_str);
-        str_std_val  = sprintf('%.3f / %s', stats(i).calc_std, rep_std_str);
-        str_ci_val   = sprintf('+/- %.3f', stats(i).ci95);
+        str_mean = sprintf('%.3f / %s', stats(i).calc_mean, rep_avg_str);
+        str_std  = sprintf('%.3f / %s', stats(i).calc_std, rep_std_str);
+        str_ci   = sprintf('+/- %.3f', stats(i).ci95_latency);
         
-        % Print Row
-        fprintf('%-*s | %-*s | %-*s | %-*.3f | %-*s\n', ...
+        fprintf('%-*s | %-*s | %-*s | %-*s\n', ...
             w_scen, stats(i).scenario, ...
-            w_mean, str_mean_val, ...
-            w_std,  str_std_val, ...
-            w_jit,  stats(i).calc_jitter, ...
-            w_ci,   str_ci_val);
+            w_val,  str_mean, ...
+            w_std,  str_std, ...
+            w_ci,   str_ci);
     end
+    fprintf('%s\n', repmat('=', 1, total_len));
+    fprintf('\n');
+    
+    % Tabela 2: Jitter
+    fprintf('%s\n', repmat('=', 1, total_len));
+    fprintf(' TABELA 2: JITTER\n');
     fprintf('%s\n', repmat('-', 1, total_len));
-    fprintf('"Rep" = Obliczone przez Sockperf\n"Calc" = Obliczone na podstawie pojedynczych opóźnień\n');
+    fprintf('%-*s | %-*s | %-*s | %-*s\n', ...
+        w_scen, 'Scenariusz', ...
+        w_val,  'Jitter Średni', ...
+        w_std,  'Odchylenie Std.', ...
+        w_ci,   'CI 95%');
+    fprintf('%s\n', repmat('-', 1, total_len));
+    
+    for i = 1:length(stats)
+        str_ci_jit = sprintf('+/- %.3f', stats(i).ci95_jitter);
+        str_jit    = sprintf('%.3f', stats(i).calc_jitter);
+        
+        fprintf('%-*s | %-*s | %-*.3f | %-*s\n', ...
+            w_scen, stats(i).scenario, ...
+            w_val,  str_jit, ...
+            w_std,  stats(i).jitter_std, ...
+            w_ci,   str_ci_jit);
+    end
+    fprintf('%s\n', repmat('=', 1, total_len));
 end

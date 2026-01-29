@@ -1,5 +1,4 @@
 function data = scrap_results(dataDir)
-    % SCRAP_RESULTS Reads Sockperf logs in a specific priority order
     
     % 1. Get all files
     files = dir(fullfile(dataDir, '*'));
